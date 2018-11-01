@@ -1,0 +1,12 @@
+diff --git a/rt-linux.xpr b/rt-linux.xpr
+index a3d1961..32803ef 100644
+--- a/rt-linux.xpr
++++ b/rt-linux.xpr
+@@ -8,6 +8,7 @@
+   <Configuration>
+     <Option Name="Id" Val="44588d6ffd734b188f6a56ae241d4d17"/>
+     <Option Name="Part" Val="xc7z020clg400-1"/>
++    <Option Name="BoardPartRepoPaths" Val="$PPRDIR/board_files"/>
+     <Option Name="CompiledLibDir" Val="$PCACHEDIR/compile_simlib"/>
+     <Option Name="CompiledLibDirXSim" Val=""/>
+     <Option Name="CompiledLibDirModelSim" Val="$PCACHEDIR/compile_simlib/modelsim"/>
