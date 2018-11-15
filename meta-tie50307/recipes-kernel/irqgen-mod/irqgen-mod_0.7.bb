@@ -12,6 +12,7 @@ SRC_URI = "\
         file://irqgen_addresses.h \
         file://irqgen.h \
         file://irqgen_sysfs.c \
+        file://irqgen_cdev.c \
         "
 
 S = "${WORKDIR}"
