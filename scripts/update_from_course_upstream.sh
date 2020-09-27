@@ -61,8 +61,8 @@ function git_remote_add() {
 }
 
 
-: ${GITURL_BASE_SSH:="git@course-gitlab.tut.fi:tie-50307-rt-systems-2018"}
-: ${GITURL_BASE_HTTPS:="https://course-gitlab.tut.fi/tie-50307-rt-systems-2018"}
+: ${GITURL_BASE_SSH:="git@course-gitlab.tuni.fi:comp.ce.460-real-time-systems_2020-2021"}
+: ${GITURL_BASE_HTTPS:="https://course-gitlab.tuni.fi:comp.ce.460-real-time-systems_2020-2021"}
 
 function ssh_or_https_remote() {
     if [[ -z $(${GIT} remote -v | grep -m1 '^origin' | sed -Ene's#.*(https://[^[:space:]]*).*#\1#p') ]]; then

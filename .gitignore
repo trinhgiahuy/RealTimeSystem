@@ -21,4 +21,5 @@
 /build/tmp/sysroots-uninative
 /build/tmp/work
 /build/tmp/work-shared
+/build/tmp/*
 *.testdata.json
