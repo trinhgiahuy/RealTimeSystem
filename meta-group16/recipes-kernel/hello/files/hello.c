@@ -17,17 +17,31 @@
  *
  *****************************************************************************/
 
+#include <linux/init.h>
 #include <linux/module.h>
+#include <linux/kernel.h>
 
-int init_module(void)
+MODULE_VERSION("0.1");
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Juho Pyykkonen");
+MODULE_AUTHOR("Maxim Kyner");
+MODULE_DESCRIPTION("A simple linux kernel module, which can be loaded and unloaded");
+MODULE_LICENSE("GPL");
+
+static char *name = "world";
+module_param(name, charp, S_IRUGO);
+
+static int __init hello_init(void)
 {
-	printk("Hello World!\n");
+	printk("Hello great %s !\n", name);
 	return 0;
 }
 
-void cleanup_module(void)
+static void __exit hello_exit(void)
 {
-	printk("Goodbye Cruel World!\n");
+	printk("Goodbye %s !\n", name);
 }
 
-MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
