@@ -12,5 +12,4 @@ BBLAYERS ?= " \
   /home/student/16/meta-pynq \
   /home/student/16/meta-xilinx/meta-xilinx-bsp \
   /home/student/16/meta-xilinx/meta-xilinx-contrib \
-  /home/student/16/meta-group16 \
   "
