@@ -1,0 +1,21 @@
+This README file contains information on the contents of the meta-tie50307 layer.
+
+Please see the corresponding sections below for details.
+
+Dependencies
+============
+
+  URI: https://course-gitlab.tut.fi/tie-50307-rt-systems-2018/meta-pynq
+  branch: master
+
+Table of Contents
+=================
+
+  I. Adding the meta-tie50307 layer to your build
+
+
+I. Adding the meta-tie50307 layer to your build
+=================================================
+
+Run 'bitbake-layers add-layer meta-tie50307'
+
