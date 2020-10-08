@@ -13,13 +13,14 @@
 char *data_storage = NULL;
 char input_buf[INPUT_BUFSIZE];
 
-struct tasklet_struct* tasklet = NULL;
+struct tasklet_struct *tasklet = NULL;
 int32_t bytes_stored = 0;
 // A standalone kobject for a sysfs entry
 static struct kobject* evil_kobj = NULL;
 
 static void do_tasklet(unsigned long data)
 {
+   
     int32_t retval;
 
     if(bytes_stored+strlen((char *)data) >= STORAGE_SIZE-1) {
@@ -38,10 +39,18 @@ static void do_tasklet(unsigned long data)
         bytes_stored += retval+1;
         printk(KERN_INFO "EVIL: bytes stored: %d\n", bytes_stored);
     }
+    
 }
 
 // The sysfs attribute invoked when writing
 static ssize_t store_evil(struct device *dev, struct device_attribute *attr, const char *buf, size_t count) {
+
+    // BUG !!!
+    if (count >= INPUT_BUFSIZE){
+        printk(KERN_ERR "DBG: 'write error\n");
+        return -1;
+    }
+
     // Read the user parameters
     sprintf(input_buf, "%s", buf);
 
@@ -51,33 +60,43 @@ static ssize_t store_evil(struct device *dev, struct device_attribute *attr, con
     return count;
 }
 
-// The sysfs attribute invoked when reading from the file
+// The sysfs attribute invoked when reading from the file   BUG NBR 2 ???
 static ssize_t show_evil(struct device *dev, struct device_attribute *attr, char *buf) {
     uint32_t bytes = 0;
     int32_t retval;
 
     // Go through the data storage and write all found strings to the output buffer
     while(1) {
-        retval += sprintf(&buf[bytes], "%s", &data_storage[bytes]);
-        if(retval == 0) {
+
+        if(bytes == bytes_stored){
+            break;
+        }
+
+        retval = sprintf(&buf[bytes], "%s", &data_storage[bytes]);
+
+        if(retval < 0) {
+            printk(KERN_ERR "sprintf read data storage failed\n");
             break;
         }
         // Null-character excluded from the sprintf return value so 1 should be added
         bytes += retval+1;
+
+
     }
 
-    printk("MUAHAHAHA\n");
-
     return bytes;
+
 }
 
+
+
 //
-//                     Kobject attributes declaration
+// Kobject attributes declaration
 //
 static struct device_attribute dev_attr_evil = {
     .attr = {
         .name = SYSFS_FILE_ATTR_NAME,
-        .mode = S_IRUGO,
+        .mode = S_IRUGO|S_IWUSR,                //BUG 4 ???
     },
     .show = show_evil,
     .store = store_evil,
@@ -106,6 +125,7 @@ static int32_t __init evil_init(void)
         goto error_kobject_create;
     }
 
+
     // Add attributes to the kobject
     // The attributes are presented as a file in the created directory
     retval = sysfs_create_file(evil_kobj, &dev_attr_evil.attr);
@@ -114,8 +134,20 @@ static int32_t __init evil_init(void)
         goto error_sysfs_create;
     }
 
+
+
+    // allocate memory for tasklet BUG NBR 1
+    tasklet  = kmalloc(sizeof(struct tasklet_struct),GFP_KERNEL);
+
+    if(tasklet == NULL) {
+        printk(KERN_INFO "etx_device: cannot allocate Memory");
+    }
+
     // Initialize the tasklet
-    tasklet_init(tasklet, do_tasklet, (unsigned long)input_buf);
+    tasklet_init(tasklet, do_tasklet, (unsigned long) input_buf);
+
+    
+
 
     return 0;
 
@@ -146,4 +178,5 @@ module_exit(evil_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("The evil kernel module for the Real-time systems course");
 MODULE_AUTHOR("Jan Lipponen <jan.lipponen@wapice.com>");
+MODULE_AUTHOR("Juho Pyykkonen");
 MODULE_VERSION("1.0");
