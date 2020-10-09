@@ -45,7 +45,7 @@ static void do_tasklet(unsigned long data)
 // The sysfs attribute invoked when writing
 static ssize_t store_evil(struct device *dev, struct device_attribute *attr, const char *buf, size_t count) {
 
-    // BUG !!!
+    // BUG added ispection for buffer overflow
     if (count >= INPUT_BUFSIZE){
         printk(KERN_ERR "DBG: 'write error\n");
         return -1;
@@ -60,7 +60,7 @@ static ssize_t store_evil(struct device *dev, struct device_attribute *attr, con
     return count;
 }
 
-// The sysfs attribute invoked when reading from the file   BUG NBR 2 ???
+// The sysfs attribute invoked when reading from the file   
 static ssize_t show_evil(struct device *dev, struct device_attribute *attr, char *buf) {
     uint32_t bytes = 0;
     int32_t retval;
@@ -68,13 +68,14 @@ static ssize_t show_evil(struct device *dev, struct device_attribute *attr, char
     // Go through the data storage and write all found strings to the output buffer
     while(1) {
 
+        // BUG added examination when all bytes are read
         if(bytes == bytes_stored){
             break;
         }
 
         retval = sprintf(&buf[bytes], "%s", &data_storage[bytes]);
 
-        if(retval < 0) {
+        if(retval < 0) {    // BUG sprintf return negative number (not 0), if fails
             printk(KERN_ERR "sprintf read data storage failed\n");
             break;
         }
@@ -96,7 +97,7 @@ static ssize_t show_evil(struct device *dev, struct device_attribute *attr, char
 static struct device_attribute dev_attr_evil = {
     .attr = {
         .name = SYSFS_FILE_ATTR_NAME,
-        .mode = S_IRUGO|S_IWUSR,                //BUG 4 ???
+        .mode = S_IRUGO|S_IWUSR,                //BUG the permissions was wrong
     },
     .show = show_evil,
     .store = store_evil,
@@ -136,7 +137,7 @@ static int32_t __init evil_init(void)
 
 
 
-    // allocate memory for tasklet BUG NBR 1
+    // BUG allocate memory for tasklet
     tasklet  = kmalloc(sizeof(struct tasklet_struct),GFP_KERNEL);
 
     if(tasklet == NULL) {
@@ -179,4 +180,5 @@ MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("The evil kernel module for the Real-time systems course");
 MODULE_AUTHOR("Jan Lipponen <jan.lipponen@wapice.com>");
 MODULE_AUTHOR("Juho Pyykkonen");
+MODULE_AUTHOR("Trinh Gia Huy");
 MODULE_VERSION("1.0");
