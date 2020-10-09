@@ -25,6 +25,7 @@ MODULE_VERSION("0.1");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Juho Pyykkonen");
 MODULE_AUTHOR("Maxim Kyner");
+
 MODULE_AUTHOR("Trinh Gia Huy");
 MODULE_DESCRIPTION("A simple linux kernel module, which can be loaded and unloaded");
 MODULE_LICENSE("GPL");
