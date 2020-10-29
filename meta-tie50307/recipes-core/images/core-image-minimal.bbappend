@@ -5,7 +5,6 @@ IMAGE_INSTALL_append = "\
     evil-mod \
     evil-tests \
     irqgen-ex4-mod \
-    irqgen-mod \
     "
 
 inherit extrausers
