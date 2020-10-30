@@ -4,7 +4,7 @@
 To start working driver that is related to the actual hardware device.
 
 ## 2. Summarize the functionality provided by the IRQ Generator IP block, then describe what is the purpose of the various registers exposed by the FPGA device. Finally, ignore the fact that you were instructed to look for the base address of the IRQ Generator register space in the provided `devicetree.dts` and instead imagine you were also the developer of the FPGA core design, where would you have found the base address of the register space?
-The IRQ generator is fpga block that generates interrupts to processor with its interrupt lines. The generator's behaviour is programmable with it's two integral control register and its status is monitorable with two internal status registers.
+The IRQ generator is fpga block that generates interrupts to processor with its interrupt lines between the PL(Programmable Logic) and PSB(Processing system). The generator's behaviour is programmable with it's two integral control register and its status is monitorable with two internal status registers.
 
 The first control register is IRQ_GEN_CTRL_REG and it is the main register which cpu uses to communicate with IRQ, at this point the register contains generator enabling and interrupt acknowledge functionalities. The second control register is IRQ_GEN_GENIRQ_REG, which is written once on the beginning to tell to the IRQ the number of interrupts, them timing and which IRQ lines are used. The status registers are called IRQ_GEN_IRQ_COUNT_REG and IRQ_GEN_IRQ_LATENCY_REG whose names are self-explanatory, they tell the amount of generated interrupts (since start) and the latency (from rising to acknowledging) of the last served interrupt.
 
