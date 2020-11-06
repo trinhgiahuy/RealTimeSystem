@@ -129,8 +129,8 @@ void do_generate_irqs(uint16_t amount, uint8_t line, uint16_t delay)
 // Returns the latency of last successfully served IRQ, in ns
 u64 irqgen_read_latency(void)
 {
-    // not supported by current IP block implementation
-    return 0;
+    u64 regValue = ioread32(IRQGEN_LATENCY_REG);
+    return regValue;
 }
 
 // Returns the total generated IRQ count from IRQ_GEN_IRQ_COUNT_REG
