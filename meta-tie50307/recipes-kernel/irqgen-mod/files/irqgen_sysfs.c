@@ -1,8 +1,8 @@
 /**
  * @file   irqgen_sysfs.c
  * @author Nicola Tuveri
- * @date   08 November 2018
- * @version 0.6
+ * @date   15 November 2018
+ * @version 0.7
  * @target_device Xilinx PYNQ-Z1
  * @brief   A stub module to support the IRQ Generator IP block for the
  *          Real-Time System course (sysfs support).
@@ -22,29 +22,6 @@
 # define IRQGEN_ATTR_RO DEVICE_ATTR_RO
 # define IRQGEN_ATTR_RW DEVICE_ATTR_RW
 # define IRQGEN_ATTR_WO DEVICE_ATTR_WO
-
-static ssize_t latencies_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-    int i;
-    char *p = buf;
-
-    for (i=0; i<irqgen_data->l_cnt; i++) {
-        ssize_t ret = scnprintf(p, (buf-p+PAGE_SIZE), "%u ", irqgen_data->latencies[i]);
-        if (ret < 0) {
-            irqgen_data->l_cnt = 0;
-            return ret;
-        } else if (ret == 0) {
-            irqgen_data->l_cnt = 0;
-            return -ENOMEM;
-        }
-        p += ret;
-    }
-    *(p-1)='\n';
-
-    irqgen_data->l_cnt = 0;
-    return p-buf+1;
-}
-IRQGEN_ATTR_RO(latencies);
 
 static ssize_t line_count_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -95,8 +72,13 @@ static ssize_t intr_handled_show(struct device *dev, struct device_attribute *at
 {
     ssize_t ret=0, acc=0;
     int i;
+
     for (i=0; i<irqgen_data->line_count; ++i) {
-        ret = sprintf(buf+acc, "%u ", irqgen_data->intr_handled[i]);
+        u32 v;
+
+        v = irqgen_data->intr_handled[i]; // TODO: protect concurrent accesses to r/w shared members of irqge_data
+
+        ret = sprintf(buf+acc, "%u ", v);
         acc += ret;
     }
     *(buf+acc-1)='\n';
@@ -120,7 +102,11 @@ IRQGEN_ATTR_RO(latency);
 
 static ssize_t total_handled_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-    return sprintf(buf, "%u\n", irqgen_data->total_handled);
+    u32 v;
+
+    v = irqgen_data->total_handled; // TODO: protect concurrent accesses to r/w shared members of irqge_data
+
+    return sprintf(buf, "%u\n", v);
 }
 IRQGEN_ATTR_RO(total_handled);
 
@@ -205,7 +191,6 @@ struct attribute *irqgen_attrs[] = {
     &IRQGEN_ATTR_GET_NAME(total_handled).attr,
     &IRQGEN_ATTR_GET_NAME(latency).attr,
     &IRQGEN_ATTR_GET_NAME(count_register).attr,
-    &IRQGEN_ATTR_GET_NAME(latencies).attr,
     &IRQGEN_ATTR_GET_NAME(line_count).attr,
     &IRQGEN_ATTR_GET_NAME(intr_ids).attr,
     &IRQGEN_ATTR_GET_NAME(intr_idx).attr,
