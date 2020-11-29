@@ -50,7 +50,7 @@ struct irqgen_data {
     u32 *intr_acks;
 
     // TODO: how to protect the shared r/w members of this structure?
-
+    struct mutex mutex_lock;
     /* The members below must be protected from concurrent access */
     u32 *intr_handled;
     u32 total_handled;

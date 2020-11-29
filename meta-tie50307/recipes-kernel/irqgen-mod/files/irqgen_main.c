@@ -18,6 +18,8 @@
 #include <asm/io.h>                 // IO operations
 #include <linux/slab.h>             // Kernel slab allocator
 
+#include <linux/mutex.h>         //spinlocks
+
 
 #include "irqgen.h"                 // Shared module specific declarations
 
@@ -70,18 +72,45 @@ static inline u32 irqgen_read_latency_clk(void)
     return regValue;
 }
 
+// Push a new latency value to the circular buffer: runs inside the
+// critical section of the interrupt handler
+static inline
+void irqgen_data_push_latency(int line, u32 latency, u64 timestamp)
+{
+    int wp, rp;
+    struct latency_data s = {
+        .latency = latency,
+        .line = (u8)line,
+        .timestamp = timestamp
+    };
+
+    wp = irqgen_data->wp;
+    rp = irqgen_data->rp;
+
+    irqgen_data->latencies[wp] = s;
+    wp = (wp+1)%MAX_LATENCIES;
+    if (wp == rp) {
+        rp = (rp+1)%MAX_LATENCIES;
+    }
+
+    irqgen_data->wp = wp;
+    irqgen_data->rp = rp;
+}
+
+
 static irqreturn_t irqgen_irqhandler(int irq, void *data)
 {
-    u32 idx = *(const u32 *)data;
-    u32 ack = irqgen_data->intr_acks[idx];
-    u32 regvalue = ioread32(IRQGEN_CTRL_REG);
+    u64 timestamp;
+    u32 idx, ack, latency=0, regvalue;
+
+    timestamp = ktime_get_ns();
+    idx = *(const u32 *)data;
+    ack = irqgen_data->intr_acks[idx];
+    regvalue = ioread32(IRQGEN_CTRL_REG);
     regvalue &= ~(IRQGEN_CTRL_REG_F_HANDLED | IRQGEN_CTRL_REG_F_ACK);
     regvalue |= 0
                 | FIELD_PREP(IRQGEN_CTRL_REG_F_HANDLED, 1)
                 | FIELD_PREP(IRQGEN_CTRL_REG_F_ACK, (ack));
-
-    ++irqgen_data->total_handled;
-    ++irqgen_data->intr_handled[idx];
 
 # ifdef DEBUG
     printk(KERN_INFO KMSG_PFX "IRQ #%d (idx: %d) received (ACK 0x%0X).\n", irq, idx, ack);
@@ -89,11 +118,25 @@ static irqreturn_t irqgen_irqhandler(int irq, void *data)
 
     iowrite32(regvalue, IRQGEN_CTRL_REG);
 
-    if (irqgen_data->l_cnt < MAX_LATENCIES)
-        irqgen_data->latencies[irqgen_data->l_cnt++] = irqgen_read_latency_clk();
+    latency = irqgen_read_latency_clk();
+
+    // TODO: handle concurrency
+    // {{{ CRITICAL SECTION
+
+    //write_lock(&irqgen_data->spinlock);
+    mutex_lock(&irqgen_data->mutex_lock);
+
+    ++irqgen_data->total_handled;
+    ++irqgen_data->intr_handled[idx];
+    irqgen_data_push_latency(idx, latency, timestamp);
+
+    //write_unlock(&irqgen_data->spinlock);
+    mutex_unlock(&irqgen_data->mutex_lock);
+    // }}}
 
     return IRQ_HANDLED;
 }
+
 
 /* Enable the IRQ Generator */
 void enable_irq_generator(void)
@@ -230,6 +273,8 @@ static int irqgen_probe(struct platform_device *pdev)
     DEVM_KZALLOC_HELPER(irqgen_data->intr_handled,
                         pdev, irqs_count, GFP_KERNEL);
 
+    //DEVM_KZALLOC_HELPER(irqgen_data->spinlock, pdev, irqs_count, GFP_KERNEL);                    
+
     irqgen_data->line_count = irqs_count;
     retval = of_property_read_u32_array(pdev->dev.of_node, PROP_WAPICE_INTRACK, irqgen_data->intr_acks, irqs_count);
     if (retval) {
@@ -276,10 +321,19 @@ static int irqgen_probe(struct platform_device *pdev)
         goto err_sysfs_setup;
     }
 
+        retval = irqgen_cdev_setup(pdev);
+    if (0 != retval) {
+        printk(KERN_ERR KMSG_PFX "chardev setup failed.\n");
+        goto err_cdev_setup;
+    }
+
+
     return 0;
 //#endif
 
  /* HINT: We are using devm_ resources: do we need to free them? */
+ err_cdev_setup:
+ irqgen_sysfs_cleanup(pdev);
  err_sysfs_setup:
  err:
     printk(KERN_ERR KMSG_PFX "probe() failed\n");
@@ -288,6 +342,7 @@ static int irqgen_probe(struct platform_device *pdev)
 
 static int irqgen_remove(struct platform_device *pdev)
 {
+    irqgen_cdev_cleanup(pdev);
     irqgen_sysfs_cleanup(pdev); // FIXME: enable
 
     return 0;
@@ -306,12 +361,18 @@ static int32_t __init irqgen_init(void)
         goto err_parse_parameters;
     }
 
+
+
     // FIXME: something is missing here
     retval = platform_driver_probe(&irqgen_pdriver, irqgen_probe);
     if (retval) {
         printk(KERN_ERR KMSG_PFX "platform_driver_probe() failed\n");
         goto err_platform_driver_probe;
     }
+
+    // init spinlock
+    //rwlock_init(&irqgen_data->spinlock);
+    mutex_init(&irqgen_data->mutex_lock);
 
     /* Enable the IRQ Generator */
     enable_irq_generator();

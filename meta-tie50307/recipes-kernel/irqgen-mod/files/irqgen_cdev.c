@@ -1,6 +1,8 @@
 /**
  * @file   irqgen_cdev.c
  * @author Nicola Tuveri
+ * @author Juho Pyykkönen
+ * @author Trinh Gia Huy
  * @date   15 November 2018
  * @version 0.7
  * @target_device Xilinx PYNQ-Z1
@@ -16,6 +18,8 @@
 # include <linux/cdev.h>             // Header for character devices support
 # include <linux/fs.h>               // Header for Linux file system support
 # include <linux/uaccess.h>          // Header for userspace access support
+
+#include <linux/mutex.h>
 
 # include "irqgen.h"                 // Shared module specific declarations
 
@@ -55,23 +59,82 @@ int irqgen_cdev_setup(struct platform_device *pdev)
     // TODO: dinamically allocate a major and a minor for this chrdev
     // don't forget error handling
 
+    ret = alloc_chrdev_region(&irqgen_chardev.devt, 0, 1, DRIVER_NAME);
+
+    if(ret < 0){
+        //error
+        printk(KERN_ERR KMSG_PFX "dynamic alloc major and minor nbr failed.\n");
+        goto err_cdev_region;
+    }
+
+
     // TODO: add to the system the cdev for the allocated (major,minor)
     // don't forget error handling
+    ret = cdev_add(&irqgen_chardev.cdev, irqgen_chardev.devt, 1);
+
+    if(ret <0){
+        //error
+        printk(KERN_ERR KMSG_PFX "cdev_add failed.\n");
+        goto err_cdev_add;
+    }
 
     // Add an "irqgen" node in the /dev/ filesystem (hint: device_create())
     // don't forget error handling
+
+    irqgen_chardev.class = class_create(THIS_MODULE, IRQGEN_CDEV_CLASS);
+
+    if (IS_ERR(irqgen_chardev.class)){
+        //error
+        printk(KERN_ERR KMSG_PFX "class_create failed.\n");
+        goto err_class;
+    }
+
+
+    irqgen_chardev.dev = device_create(irqgen_chardev.class, NULL, irqgen_chardev.devt, NULL, DRIVER_NAME);
+
+    if (IS_ERR(irqgen_chardev.dev)){
+        //error
+        printk(KERN_ERR KMSG_PFX "device_create failed.\n");
+        goto err_dev_create;
+    }
+
+
+
+
+
 
     // TODO: do we need a sync mechanism for any cdev operation?
 
     return 0;
 
     // TODO: use labels to handle errors and undo any resource allocation
+
+
+    err_cdev_region:
+        unregister_chrdev_region(irqgen_chardev.devt, 1);
+    err_cdev_add:
+        cdev_del(&irqgen_chardev.cdev);
+    err_class:
+        class_destroy(irqgen_chardev.class);
+    err_dev_create:
+        device_destroy(irqgen_chardev.class, irqgen_chardev.devt);
+        
+
+    return ret;
+
 }
 
 void irqgen_cdev_cleanup(struct platform_device *pdev)
 {
     // destroy, unregister and free, in the right order, all resources
     // allocated in irqgen_cdev_setup()
+
+    device_destroy(irqgen_chardev.class, irqgen_chardev.devt);
+    class_destroy(irqgen_chardev.class);
+    cdev_del(&irqgen_chardev.cdev);
+    unregister_chrdev_region(irqgen_chardev.devt, 1);
+
+
 }
 
 static u8 already_opened = 0;
@@ -123,14 +186,19 @@ static ssize_t irqgen_cdev_read(struct file *fp, char *ubuf, size_t count, loff_
     }
 
     // TODO: how to protect access to shared r/w members of irqgen_data?
+    mutex_lock_interruptible(&irqgen_data->mutex_lock);
 
     if (irqgen_data->rp == irqgen_data->wp) {
         // Nothing to read
+        mutex_unlock(&irqgen_data->mutex_lock);
         return 0;
     }
 
     v = irqgen_data->latencies[irqgen_data->rp];
     irqgen_data->rp = (irqgen_data->rp + 1)%MAX_LATENCIES;
+
+    mutex_unlock(&irqgen_data->mutex_lock);
+    
 
     ret = scnprintf(kbuf, KBUF_SIZE, "%u,%lu,%llu\n", v.line, v.latency, v.timestamp);
     if (ret < 0) {
@@ -139,8 +207,10 @@ static ssize_t irqgen_cdev_read(struct file *fp, char *ubuf, size_t count, loff_
         ret = -ENOMEM;
         goto end;
     }
+    
 
     // TODO: how to transfer from kernel space to user space?
+    copy_to_user(ubuf, kbuf, count);
     *f_pos += ret;
 
  end:
