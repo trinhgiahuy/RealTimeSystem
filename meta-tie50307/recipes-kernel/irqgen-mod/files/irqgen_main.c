@@ -18,7 +18,7 @@
 #include <asm/io.h>                 // IO operations
 #include <linux/slab.h>             // Kernel slab allocator
 
-#include <linux/mutex.h>         //spinlocks
+#include <linux/spinlock.h>         //spinlocks
 
 
 #include "irqgen.h"                 // Shared module specific declarations
@@ -120,19 +120,17 @@ static irqreturn_t irqgen_irqhandler(int irq, void *data)
 
     latency = irqgen_read_latency_clk();
 
-    // TODO: handle concurrency
-    // {{{ CRITICAL SECTION
 
-    //write_lock(&irqgen_data->spinlock);
-    mutex_lock(&irqgen_data->mutex_lock);
+    spin_lock(&irqgen_data->spinlock);
+   
 
     ++irqgen_data->total_handled;
     ++irqgen_data->intr_handled[idx];
     irqgen_data_push_latency(idx, latency, timestamp);
 
-    //write_unlock(&irqgen_data->spinlock);
-    mutex_unlock(&irqgen_data->mutex_lock);
-    // }}}
+    spin_unlock(&irqgen_data->spinlock);
+
+
 
     return IRQ_HANDLED;
 }
@@ -371,8 +369,7 @@ static int32_t __init irqgen_init(void)
     }
 
     // init spinlock
-    //rwlock_init(&irqgen_data->spinlock);
-    mutex_init(&irqgen_data->mutex_lock);
+    spin_lock_init(&irqgen_data->spinlock);
 
     /* Enable the IRQ Generator */
     enable_irq_generator();

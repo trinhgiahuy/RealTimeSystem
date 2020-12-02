@@ -19,7 +19,7 @@
 # include <linux/fs.h>               // Header for Linux file system support
 # include <linux/uaccess.h>          // Header for userspace access support
 
-#include <linux/mutex.h>
+#include <linux/spinlock.h>
 
 # include "irqgen.h"                 // Shared module specific declarations
 
@@ -186,18 +186,20 @@ static ssize_t irqgen_cdev_read(struct file *fp, char *ubuf, size_t count, loff_
     }
 
     // TODO: how to protect access to shared r/w members of irqgen_data?
-    mutex_lock_interruptible(&irqgen_data->mutex_lock);
+    unsigned long flags;
+    spin_lock_irqsave(&irqgen_data->spinlock, flags);
 
     if (irqgen_data->rp == irqgen_data->wp) {
         // Nothing to read
-        mutex_unlock(&irqgen_data->mutex_lock);
+        spin_unlock_irqrestore(&irqgen_data->spinlock, flags);
+
         return 0;
     }
 
     v = irqgen_data->latencies[irqgen_data->rp];
     irqgen_data->rp = (irqgen_data->rp + 1)%MAX_LATENCIES;
 
-    mutex_unlock(&irqgen_data->mutex_lock);
+    spin_unlock_irqrestore(&irqgen_data->spinlock, flags);
     
 
     ret = scnprintf(kbuf, KBUF_SIZE, "%u,%lu,%llu\n", v.line, v.latency, v.timestamp);
@@ -210,7 +212,7 @@ static ssize_t irqgen_cdev_read(struct file *fp, char *ubuf, size_t count, loff_
     
 
     // TODO: how to transfer from kernel space to user space?
-    copy_to_user(ubuf, kbuf, count);
+    copy_to_user(ubuf, kbuf, ret);
     *f_pos += ret;
 
  end:
