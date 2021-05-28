@@ -1,0 +1,8 @@
+PV := "${PV}-rt"
+
+FILESEXTRAPATHS_prepend := "${THISDIR}/linux-xlnx:"
+
+SRC_URI_append_pynq = " \
+        file://rt.cfg;sha256sum=65a5bb77ce6063c436507023b3ce0982556fae029c4edd0358e1ce421d265895 \
+        "
+

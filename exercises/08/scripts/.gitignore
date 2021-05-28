@@ -1,0 +1,4 @@
+*.dat
+/latencies.csv
+/latencies.csv.old
+/plot_latencies.gpi
